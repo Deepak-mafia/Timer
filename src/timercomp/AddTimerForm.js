@@ -1,5 +1,5 @@
 // components/AddTimerForm.js
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimerContext } from './TimerContext';
 import { ThemeContext } from '../theme/ThemeContext';
+import { Check } from 'lucide-react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export const AddTimerForm = ({ onClose }) => {
   const { dispatch } = useContext(TimerContext);
@@ -19,21 +24,46 @@ export const AddTimerForm = ({ onClose }) => {
   const [duration, setDuration] = useState('');
   const [category, setCategory] = useState('');
   const [halfwayAlert, setHalfwayAlert] = useState(false);
+  const [error, setError] = useState('');
+  const [errorKey, setErrorKey] = useState(0);
+  const slideAnim = useRef(new Animated.Value(-100)).current;
+
+  const showError = msg => {
+    setError(msg);
+    setErrorKey(prev => prev + 1);
+  };
+
+  // Slide-down and auto-dismiss effect for error
+  React.useEffect(() => {
+    if (error) {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      const timeout = setTimeout(() => {
+        Animated.timing(slideAnim, {
+          toValue: -100,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => setError(''));
+      }, 3000);
+      return () => clearTimeout(timeout);
+    } else {
+      slideAnim.setValue(-100);
+    }
+  }, [error, errorKey]);
 
   const handleSubmit = () => {
-    // Validate inputs
     if (!name.trim() || !duration.trim() || !category.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showError('Please fill in all fields');
       return;
     }
-
     const durationInSeconds = parseInt(duration, 10);
     if (isNaN(durationInSeconds) || durationInSeconds <= 0) {
-      Alert.alert('Error', 'Please enter a valid duration');
+      showError('Please enter a valid duration');
       return;
     }
-
-    // Create new timer
     const newTimer = {
       id: Date.now().toString(),
       name: name.trim(),
@@ -45,7 +75,6 @@ export const AddTimerForm = ({ onClose }) => {
       isCompleted: false,
       createdAt: new Date().toISOString(),
     };
-
     dispatch({ type: 'ADD_TIMER', payload: newTimer });
     onClose();
   };
@@ -59,7 +88,6 @@ export const AddTimerForm = ({ onClose }) => {
         ]}
       >
         <Text style={[styles.title, { color: theme.text }]}>Add New Timer</Text>
-
         <TextInput
           style={[
             styles.input,
@@ -74,7 +102,6 @@ export const AddTimerForm = ({ onClose }) => {
           value={name}
           onChangeText={setName}
         />
-
         <TextInput
           style={[
             styles.input,
@@ -90,7 +117,6 @@ export const AddTimerForm = ({ onClose }) => {
           onChangeText={setDuration}
           keyboardType="numeric"
         />
-
         <TextInput
           style={[
             styles.input,
@@ -105,7 +131,6 @@ export const AddTimerForm = ({ onClose }) => {
           value={category}
           onChangeText={setCategory}
         />
-
         <TouchableOpacity
           style={styles.alertToggle}
           onPress={() => setHalfwayAlert(!halfwayAlert)}
@@ -114,14 +139,19 @@ export const AddTimerForm = ({ onClose }) => {
             style={[
               styles.checkbox,
               { borderColor: theme.accent },
-              halfwayAlert && { backgroundColor: theme.accent },
+              halfwayAlert && {
+                backgroundColor: theme.accent,
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
             ]}
-          />
+          >
+            {halfwayAlert && <Check color={theme.card} size={18} />}
+          </View>
           <Text style={[styles.alertText, { color: theme.text }]}>
             Enable halfway alert
           </Text>
         </TouchableOpacity>
-
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[
@@ -135,7 +165,6 @@ export const AddTimerForm = ({ onClose }) => {
               Cancel
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={[
               styles.button,
@@ -145,11 +174,31 @@ export const AddTimerForm = ({ onClose }) => {
             onPress={handleSubmit}
           >
             <Text style={[styles.buttonText, { color: theme.card }]}>
-              Create
+              Create Timer
             </Text>
           </TouchableOpacity>
         </View>
       </View>
+      {/* Error Alert */}
+      <Animated.View
+        style={[
+          styles.topModalOverlay,
+          { transform: [{ translateY: slideAnim }] },
+        ]}
+      >
+        {error ? (
+          <View
+            style={[
+              styles.topModalContent,
+              { backgroundColor: theme.card, borderColor: theme.accent },
+            ]}
+          >
+            <Text style={[styles.modalText, { color: theme.text }]}>
+              {error}
+            </Text>
+          </View>
+        ) : null}
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -224,5 +273,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff', // fallback
+  },
+  topModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    alignItems: 'center',
+    zIndex: 100,
+    paddingTop: 32,
+  },
+  topModalContent: {
+    padding: 18,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 220,
+    maxWidth: '90%',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  modalText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

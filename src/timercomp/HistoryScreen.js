@@ -1,12 +1,38 @@
 // screens/HistoryScreen.js
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+} from 'react-native';
 import { TimerContext } from './TimerContext';
 import { ThemeContext } from '../theme/ThemeContext';
+import Share from 'react-native-share';
 
 export const HistoryScreen = ({ navigation }) => {
   const { state } = useContext(TimerContext);
   const { theme } = useContext(ThemeContext);
+
+  const handleExport = async () => {
+    try {
+      const json = JSON.stringify(state.history, null, 2);
+      const base64 = btoa(unescape(encodeURIComponent(json)));
+      const shareOptions = {
+        title: 'Export Timer History',
+        message: 'Here is my timer history!',
+        url: 'data:application/json;base64,' + base64,
+        type: 'application/json',
+        filename: 'timer-history.json',
+      };
+      await Share.open(shareOptions);
+    } catch (e) {
+      console.log('error inside catch', e);
+
+      // Optionally handle error
+    }
+  };
 
   const renderHistoryItem = ({ item }) => {
     const completedDate = new Date(item.completedAt).toLocaleString();
@@ -71,6 +97,12 @@ export const HistoryScreen = ({ navigation }) => {
         ]}
       >
         <Text style={[styles.headerTitle, { color: theme.text }]}>History</Text>
+        <TouchableOpacity
+          style={[styles.exportBtn, { backgroundColor: theme.accent }]}
+          onPress={handleExport}
+        >
+          <Text style={{ color: theme.card, fontWeight: 'bold' }}>Export</Text>
+        </TouchableOpacity>
       </View>
       {state.history.length === 0 ? (
         <View style={styles.emptyState}>
@@ -123,6 +155,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  exportBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 12,
   },
   section: {
     marginBottom: 20,

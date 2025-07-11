@@ -1,39 +1,54 @@
 // components/TimerGroup.js
-import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useContext, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 import { Timer } from './Timer';
 import { TimerContext } from './TimerContext';
-import { Play, Pause, RotateCcw } from 'lucide-react-native';
+import { Play, Pause, RotateCcw, ChevronDown } from 'lucide-react-native';
 import { ThemeContext } from '../theme/ThemeContext';
 
 export const TimerGroup = ({ category, timers }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const { dispatch } = useContext(TimerContext);
   const { theme } = useContext(ThemeContext);
+  const rotateAnim = useRef(new Animated.Value(isExpanded ? 1 : 0)).current;
+
+  // Animate arrow rotation
+  const toggleAccordion = () => {
+    setIsExpanded(prev => {
+      Animated.timing(rotateAnim, {
+        toValue: prev ? 0 : 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      return !prev;
+    });
+  };
+
+  // Smarter bulk action logic
+  const incompleteTimers = timers.filter(t => !t.isCompleted);
+  const runningTimers = timers.filter(t => t.isRunning && !t.isCompleted);
+  const pausedTimers = timers.filter(t => !t.isRunning && !t.isCompleted);
+  const needsReset = timers.some(
+    t => t.isCompleted || t.remainingTime !== t.duration,
+  );
+
+  const showPlay = pausedTimers.length > 0;
+  const showPause = runningTimers.length > 0;
+  const showReset = needsReset;
 
   // Sort timers: incomplete first, then completed
   const sortedTimers = [...timers].sort((a, b) => {
     if (a.isCompleted === b.isCompleted) {
-      // If both are completed or both are incomplete, sort by name
       return a.name.localeCompare(b.name);
     }
-    // Put incomplete timers first
     return a.isCompleted ? 1 : -1;
   });
-
-  const incompleteCount = timers.filter(t => !t.isCompleted).length;
-
-  const handleBulkStart = () => {
-    dispatch({ type: 'BULK_START', payload: category });
-  };
-
-  const handleBulkPause = () => {
-    dispatch({ type: 'BULK_PAUSE', payload: category });
-  };
-
-  const handleBulkReset = () => {
-    dispatch({ type: 'BULK_RESET', payload: category });
-  };
 
   return (
     <View
@@ -47,30 +62,59 @@ export const TimerGroup = ({ category, timers }) => {
           styles.header,
           { backgroundColor: theme.chip, borderBottomColor: theme.border },
         ]}
-        onPress={() => setIsExpanded(!isExpanded)}
+        onPress={toggleAccordion}
+        activeOpacity={0.8}
       >
         <View style={styles.headerLeft}>
           <Text style={[styles.categoryTitle, { color: theme.text }]}>
             {category}
           </Text>
           <View style={styles.bulkActions}>
-            {incompleteCount > 0 && (
-              <>
-                <TouchableOpacity onPress={handleBulkStart}>
-                  <Play color={theme.muted} size={24} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleBulkPause}>
-                  <Pause color={theme.muted} size={24} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleBulkReset}>
-                  <RotateCcw color={theme.muted} size={24} />
-                </TouchableOpacity>
-              </>
+            {showPlay && (
+              <TouchableOpacity
+                onPress={() =>
+                  dispatch({ type: 'BULK_START', payload: category })
+                }
+              >
+                <Play color={theme.muted} size={24} />
+              </TouchableOpacity>
+            )}
+            {showPause && (
+              <TouchableOpacity
+                onPress={() =>
+                  dispatch({ type: 'BULK_PAUSE', payload: category })
+                }
+              >
+                <Pause color={theme.muted} size={24} />
+              </TouchableOpacity>
+            )}
+            {showReset && (
+              <TouchableOpacity
+                onPress={() =>
+                  dispatch({ type: 'BULK_RESET', payload: category })
+                }
+              >
+                <RotateCcw color={theme.muted} size={24} />
+              </TouchableOpacity>
             )}
           </View>
         </View>
+        <Animated.View
+          style={{
+            transform: [
+              {
+                rotate: rotateAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '180deg'],
+                }),
+              },
+            ],
+            marginLeft: 8,
+          }}
+        >
+          <ChevronDown color={theme.muted} size={24} />
+        </Animated.View>
       </TouchableOpacity>
-
       {isExpanded && (
         <View style={styles.timerList}>
           {sortedTimers.map(timer => (
@@ -101,26 +145,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   bulkActions: {
-    width: '70%',
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 10,
-  },
-  actionButton: {
-    fontWeight: '500',
+    gap: 10,
+    marginLeft: 10,
   },
   timerList: {
     padding: 10,
   },
   headerLeft: {
-    gap: 10,
-    width: '100%',
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  timerCount: {
-    fontSize: 12,
-    marginTop: 2,
   },
 });

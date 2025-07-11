@@ -5,24 +5,30 @@
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React, { useContext } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { ThemeProvider, ThemeContext } from './src/theme/ThemeContext';
+import AppNavigator from './src/navigation/AppNavigator';
+import { TimerProvider } from './src/timercomp/TimerContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
+function AppContent() {
+  const { theme } = useContext(ThemeContext);
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NewAppScreen templateFileName="App.tsx" />
-    </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;
+export default function App() {
+  return (
+    <TimerProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </TimerProvider>
+  );
+}
